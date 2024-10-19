@@ -32,7 +32,7 @@ class PasswordManager:
         self.gpg = gnupg.GPG() # path/to/.gnupg
 
         # we need to create a gpgkey or peace out  
-        if self.check_for_gpgkey is not True:  
+        if self.check_for_gpgkey() is not True:  
             # for now we'll tell the user to either create one themselves or fuck off
             raise NoGpgKeyError("No GpgKey present. Either import a key or create a new one")
         
