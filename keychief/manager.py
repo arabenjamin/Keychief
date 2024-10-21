@@ -32,22 +32,30 @@ class PasswordManager:
         self.gpg = gnupg.GPG() # path/to/.gnupg
 
         # we need to create a gpgkey or peace out  
-        if self.check_for_gpgkey() is not True:  
+        if self.__check_for_gpgkey() is not True:  
             # for now we'll tell the user to either create one themselves or fuck off
             raise NoGpgKeyError("No GpgKey present. Either import a key or create a new one")
         
+        # we're making assumptions here 
         self.password_store_dir = "~/.password-store"
+
         # If the password_store_dir is being passed in
-        # we're makeing an assumtion that the password store
-        # is being created for the first time.
-        if self.password_store_dir is not None:
+        # the assumtion is that the password store
+        # doesn't already exist
+        if password_store_dir is not None:
             self.password_store_dir = os.path.expanduser(password_store_dir)
-            self.init_password_store()
+            self.__init_password_store()
            
         self.repo = git.Repo(self.password_store_dir)
 
-        
-    def check_for_gpgkey(self) -> bool:
+
+    def __IsGpgInstalled() -> bool:
+        return False
+
+    def __IsGitInsalled() -> bool:
+        return False
+
+    def __check_for_gpgkey(self) -> bool:
         # NOTE: In future it may be useful to pic
         # a key if there is more than one.
         # For now we're assuming there's only one key present 
@@ -55,7 +63,7 @@ class PasswordManager:
             return True
         return False
 
-    def init_password_store(self) -> None:
+    def __init_password_store(self) -> None:
         
         os.makedirs(self.password_store_dir, exist_ok=True)
         if not os.path.exists(os.path.join(self.password_store_dir, '.git')):
