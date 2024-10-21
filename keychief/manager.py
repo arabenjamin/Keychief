@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
 
-import os, sys, logging
+import os, sys, logging, subprocess
 import gnupg, git
 from typing import Optional
+from enum import Enum
 
+
+
+class Dependacy(Enum):
+    GIT = "git"
+    GPG = "gpg"
+
+class DependacyError(Exception):
+    """ Missing a Dependacy"""
 
 class NoGpgKeyError(Exception):
     """ No GpgKey found """
@@ -27,6 +36,13 @@ class PasswordManager:
     def __init__(self, password_store_dir: Optional[str] = None) -> None:
         
 
+
+        # Check and make sure our depancies are installed
+        if not self.__IsDependancyInstalled(Dependacy.GIT):
+            raise DependacyError(f"Missing Dependacy, {Dependacy.GIT} needs to be installed")
+        if not self.__IsDependancyInstalled(Dependacy.GPG):
+            raise DependacyError(f"Missing Dependacy, {Dependacy.GPG} needs to be installed")
+
         # NOTE: this should probably follow the best practices from the documentation
         # add in a path to this call
         self.gpg = gnupg.GPG() # path/to/.gnupg
@@ -49,11 +65,14 @@ class PasswordManager:
         self.repo = git.Repo(self.password_store_dir)
 
 
-    def __IsGpgInstalled() -> bool:
-        return False
+    def __IsDependancyInstalled(dependacy:Dependacy) -> bool:
 
-    def __IsGitInsalled() -> bool:
-        return False
+        try:
+            subprocess.run([f"{dependacy}", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            return True
+        except subprocess.CalledProcessError:
+            return False
+
 
     def __check_for_gpgkey(self) -> bool:
         # NOTE: In future it may be useful to pic
