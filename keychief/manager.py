@@ -17,15 +17,16 @@ class Dependacy(Enum):
 class Result(BaseModel):
     data: Optional[str] = None
     ok: bool
-    error: Optional[Exception] = None
+    error: Optional[str] = None
     
-
 class Options(BaseModel):
-    password_store_dir: Optional[str] = "~/.password-store"
+    
+    password_store_base_dir: Optional[str] = "$HOME"
+    password_store_dir: Optional[str] = "/.keychief" # TODO: This file should be hidden
     gnupg_home_dir:Optional[str] = "~/.gnupg"
     key_fingerprint: Optional[str] = None
-    with_git: bool
-    repo_path: Optional[str] = "~/.password-store/.git" 
+    with_git: Optional[bool] = True
+    repo_path: Optional[str] = "/.git" 
     # TODO : Add default validation
     
 
@@ -62,6 +63,7 @@ class PasswordManager:
 
         self.options: Options = options
         self.ok: bool = False
+        self.gpg = None
 
         # Check and make sure our depancies are installed
         if not self.__IsDependancyInstalled("git"):
@@ -80,23 +82,27 @@ class PasswordManager:
             # for now we'll tell the user to either create one themselves or fuck off
             raise NoGpgKeyError("No GpgKey present. Either import a key or create a new one")
  
-
         # Setup the directory for our password store
-        if not os.path.exists(self.options.password_store_dir):
+        self.password_store_dir = os.path.join(
+            self.options.password_store_base_dir, 
+            self.options.password_store_dir
+        )
+        log_msg = f"Key Chief Directory is set to {self.password_store_dir}"
+        logging.debug(log_msg)
+        if not os.path.exists(self.password_store_dir):
             # create the directory, and set in config file TODO: set config
-            password_store_dir = os.path.expanduser(self.options.password_store_dir)
-            os.makedirs(password_store_dir, exist_ok=True)
-
+            #os.makedirs(self.password_store_dir, exist_ok=True)
+            os.mkdir(self.password_store_dir)
         # set up git
         # TODO: Add ability to clone from exisiting repo
         # check if a git repo exists, create it if not
-        if os.path.exists(self.options.repo_path):
-            self.repo = git.Repo(self.options.password_store_dir)
+        self.repo_path = self.password_store_dir + self.options.repo_path
+        if not os.path.exists(self.repo_path):
+            self.repo = git.Repo.init(self.password_store_dir)
         else:
-            self.repo = git.Repo.init(self.options.password_store_dir)
-        
-        self.ok = True
+            self.repo = git.Repo(self.password_store_dir)
 
+        self.ok = True
 
     def __IsDependancyInstalled(self, dependacy:Dependacy) -> bool:
 
@@ -117,9 +123,6 @@ class PasswordManager:
             self.gpg = gnupg.GPG(gnupghome=os.path.expanduser(self.options.gnupg_home_dir))
             return True
 
-        
-
-
     def __check_for_gpgkey(self) -> bool:
         # NOTE: In future it may be useful to pic
         # a key if there is more than one.
@@ -129,8 +132,13 @@ class PasswordManager:
             return True
         return False
 
+    #def __get_fingerprint(self) -> str:
+    #    self.fingerprint = self.gpg.
+    #    return 
 
     def add_password(self, secret:str, password:str) -> Result:
+        log_msg = f"Adding password for {secret}"
+        logging.info(log_msg)
         encrypted_password = self.gpg.encrypt(password, recipients=None, symmetric=True)
         if not encrypted_password.ok:
             return Result(
@@ -144,11 +152,11 @@ class PasswordManager:
         #self.repo.index.add([file_path])
         #self.repo.index.commit(f"Add password for {secret}")
         return Result(
-            data = encrypted_password.status,
+            data = encrypted_password.data,
             ok = encrypted_password.ok
         )
 
-    def get_password(self, secret:str):
+    def get_password(self, secret:str) -> Result:
 
         file_path = os.path.join(self.password_store_dir, f"{secret}.gpg")
         if not os.path.exists(file_path):
@@ -160,10 +168,10 @@ class PasswordManager:
         
         with open(file_path, 'rb') as f:
             encrypted_password = f.read()
-        decrypted_password = self.gpg.decrypt(encrypted_password)
+        decrypted_password = self.gpg.decrypt(encrypted_password.decode())
         
         return Result(
-            data = decrypted_password,
+            data = decrypted_password.data,
             ok = decrypted_password.ok
         )
 

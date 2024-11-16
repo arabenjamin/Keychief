@@ -1,72 +1,83 @@
-import pytest, os, uuid
+import pytest, os, uuid, logging
 from keychief.manager import PasswordManager, Options, DependacyError
 
 class TestManager:
 
-
-    def test_manager_GnupgHome(self, mock_gnupghome):
-        
-        options = Options(
-            gnupg_home_dir = "$HOME/.mock_gnupg_home"
-        )
-        manager = PasswordManager(options=options)
-
-        assert manager.ok
     
-    def test_manager_GnupgNotHome(self):
+    @pytest.mark.skip(reason="Still working out the bugs")
+    def test_manager_init_no_GPGKey(self, ):
+        """ without Key graceful fail """
+        #with pytest.raises(DependacyError):
+        #    PasswordManager()
         assert False
 
-    def test_manager_init_GPGKey(self):
-        assert False
-
-    def test_manager_init_no_GPGKey(self):
-        assert False
-
-    def test_manager_init_git(self):
-        assert False
-
+    @pytest.mark.skip(reason="Still working out the bugs")
     def test_manager_init_no_git(self):
+        #with pytest.raises(DependacyError):
+        #    manager = PasswordManager()
+        
         assert False
 
-
-
-    def test_manager_init_happy_path(self):
+    def test_manager_init_happy_path(self, tmp_path, caplog):
 
         #with pytest.raises(DependacyError):
         #    PasswordManager()
+
         try:
-            PasswordManager()
-            assert True
+            
+            options = Options(
+                password_store_dir=str(tmp_path)
+            )
+            manager = PasswordManager(options = options)
+            caplog.set_level(logging.INFO)
+            assert manager.ok
         except DependacyError:
             assert False
-        
-    @pytest.mark.skip(reason=" Needs refactoring")
-    def test_store_dir_exists(self, temp_path):
-        manager = PasswordManager(password_store_dir = temp_path)
-        assert os.path.exists(temp_path)
+ 
+    def test_store_dir_exists(self, tmp_path):
+        options = Options(
+            password_store_dir=str(tmp_path)
+        )
+        manager = PasswordManager(options = options)
+        assert os.path.exists(manager.password_store_dir)
 
-    @pytest.mark.skip(reason=" Need automatic passphrase for key, need to mock key")
-    def test_add_password(self, temp_path, fake_password):
+    def test_add_password(self, tmp_path, fake_password, mock_gpg, caplog):
+        print("Mocking encrypt")
+
         fake_secret = "Notmysecret"
-        manager = PasswordManager(password_store_dir = temp_path)
+        options = Options(
+            password_store_dir=str(tmp_path)
+        )
+        manager = PasswordManager(options = options)
         
         secret = manager.add_password(fake_secret,fake_password)
+
         assert secret.ok
-    
-    
-    @pytest.mark.skip(reason=" Need automatic passphrase for key, need to mock key")
-    def test_get_passowrd(self, temp_path, fake_password):
+        assert secret.data == f"ENCRYPTED_{fake_password}"
+
+    def test_get_passowrd(self, tmp_path, fake_password, mock_gpg, caplog):
         fake_secret = "Notmysecret"
-        manager = PasswordManager(password_store_dir = temp_path)
+
+        options = Options(
+            password_store_dir=str(tmp_path)
+        )
+        manager = PasswordManager(options = options)
         strored_secret = manager.add_password(fake_secret,fake_password)
+        assert strored_secret.ok
         retrieved_password = manager.get_password(fake_secret)
         assert retrieved_password.ok
-        assert retrieved_password.data == fake_secret
-        
-    @pytest.mark.skip(reason=" Need automatic passphrase for key, need to mock key")
-    def test_list_passwords(self, temp_path, fake_password):
+        assert str(retrieved_password.data) == fake_password
+ 
+    def test_get_missing_password(self):
+        assert False
+    
+
+    def test_list_passwords(self, tmp_path, fake_password, mock_gpg, caplog):
         fake_secret = "Notmysecret"
-        manager = PasswordManager(password_store_dir = temp_path)
+        options = Options(
+            password_store_dir=str(tmp_path)
+        )
+        manager = PasswordManager(options = options)
         strored_secret = manager.add_password(fake_secret,fake_password)
         assert len(manager.list_passwords() ) == 1
     
